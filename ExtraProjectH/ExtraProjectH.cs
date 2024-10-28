@@ -167,16 +167,12 @@ namespace ExtraProjectH
                 BlockTableRecord btr = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
                 Point3d centerPoint = GetPoint(ed, "Nhập tâm hình tròn");
-
                 // Khởi tạo đối tượng Circle với bán kính tạm thời là 0
                 Circle circle = new Circle(centerPoint, Vector3d.ZAxis, 0);
-
                 // Khởi tạo CircleJig để cho phép người dùng chọn bán kính
-                CircleJig circleJig = new CircleJig(circle, centerPoint); // Đổi tên thành CircleJig
-
+                CircleJig circleJig = new CircleJig(circle, centerPoint);
                 // Thực hiện quá trình jig để người dùng nhập bán kính
                 PromptResult result = ed.Drag(circleJig);
-
                 // Nếu người dùng xác nhận bán kính, thêm hình tròn vào bản vẽ
                 if (result.Status == PromptStatus.OK)
                 {
@@ -258,10 +254,8 @@ namespace ExtraProjectH
                     for (int i = 1; i <= soPhan; i++)
                     {
                         double angle = i * angleStep;
-
                         // Tính tọa độ của điểm chia mới trên đường tròn
                         Point3d currentPoint = PointOnCircle(center, radius, angle);
-
                         // Tạo cung (Arc) giữa hai điểm chia
                         Arc arc = new Arc(
                             center,
@@ -272,7 +266,6 @@ namespace ExtraProjectH
                         // Thêm cung mới vào bản vẽ
                         btr.AppendEntity(arc);
                         tr.AddNewlyCreatedDBObject(arc, true);
-
                         // Cập nhật previousPoint để trở thành điểm cuối của cung hiện tại
                         previousPoint = currentPoint;
                     }
@@ -280,8 +273,7 @@ namespace ExtraProjectH
                     // Xóa đường tròn ban đầu sau khi chia
                     circle.Erase();
                 }
-
-                // Commit transaction
+                 
                 tr.Commit();
             }
         }
