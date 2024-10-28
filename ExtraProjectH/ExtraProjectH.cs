@@ -180,18 +180,63 @@ namespace ExtraProjectH
                 }
             }
         }
-   
-       [CommandMethod("VePolyLine")]
-        public void VePolyLine()
+
+        [CommandMethod("VePolyline")]
+        public void VePolyline()
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
             Editor ed = doc.Editor;
-            using(Transaction tr = db.TransactionManager.StartTransaction())
-            {
 
-            }    
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                BlockTableRecord btr = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+
+                // Khởi tạo một đối tượng Polyline mới
+                Polyline polyline = new Polyline();
+                int pointIndex = 0;
+
+                // Sử dụng vòng lặp để người dùng nhập các điểm của polyline
+                while (true)
+                {
+                    PromptPointOptions ppo = new PromptPointOptions("\nChọn điểm tiếp theo hoặc nhấn Enter để kết thúc:");
+                    if (pointIndex == 0)
+                    {
+                        ppo.Message = "\nChọn điểm đầu:";
+                    }
+
+                    // Nhập điểm từ người dùng
+                    PromptPointResult ppr = ed.GetPoint(ppo);
+                    if (ppr.Status == PromptStatus.Cancel || ppr.Status == PromptStatus.None)
+                    {
+                        // Kết thúc khi người dùng nhấn Enter
+                        break;
+                    }
+
+                    // Thêm điểm vào polyline
+                    polyline.AddVertexAt(pointIndex, new Point2d(ppr.Value.X, ppr.Value.Y), 0, 0, 0);
+                    pointIndex++;
+                }
+
+                // Kiểm tra nếu người dùng nhập ít nhất hai điểm
+                if (pointIndex > 1)
+                {
+                    // Thêm đối tượng Polyline vào bản vẽ
+                    btr.AppendEntity(polyline);
+                    tr.AddNewlyCreatedDBObject(polyline, true);
+
+                    // Commit transaction để lưu Polyline vào bản vẽ
+                    tr.Commit();
+                }
+                else
+                {
+                    // Xóa đối tượng Polyline nếu người dùng chỉ nhập một điểm hoặc không nhập điểm nào
+                    polyline.Dispose();
+                }
+            }
         }
+
 
         [CommandMethod("ChiaDeuDoanDuocChon")]
         public void ChiaDeuDoanDuocChon()
