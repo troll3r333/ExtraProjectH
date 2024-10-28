@@ -1,11 +1,9 @@
-﻿using System;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Geometry;
+﻿using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Internal;
-using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.EditorInput;
-using static ExtraProjectH.ExtraProjectH;
+using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Runtime;
+using System;
 
 namespace ExtraProjectH
 {
@@ -182,6 +180,19 @@ namespace ExtraProjectH
                 }
             }
         }
+   
+       [CommandMethod("VePolyLine")]
+        public void VePolyLine()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+            Editor ed = doc.Editor;
+            using(Transaction tr = db.TransactionManager.StartTransaction())
+            {
+
+            }    
+        }
+
         [CommandMethod("ChiaDeuDoanDuocChon")]
         public void ChiaDeuDoanDuocChon()
         {
