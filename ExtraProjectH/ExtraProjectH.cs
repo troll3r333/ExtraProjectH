@@ -240,8 +240,8 @@ namespace ExtraProjectH
             }
         }
 
-        [CommandMethod("VePolylineJig")]
-        public void VePolylineJig()
+        [CommandMethod("VePolyline")]
+        public void VePolyline()
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
@@ -348,7 +348,7 @@ namespace ExtraProjectH
                     line.Erase();
                 }
                 // Xử lý nếu đối tượng được chọn là đường tròn
-                else if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Circle)))
+                if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Circle)))
                 {
                     // Lấy đối tượng đường tròn được chọn
                     Circle circle = (Circle)tr.GetObject(per.ObjectId, OpenMode.ForWrite);
@@ -376,13 +376,15 @@ namespace ExtraProjectH
                         tr.AddNewlyCreatedDBObject(arc, true);
                         // Cập nhật previousPoint để trở thành điểm cuối của cung hiện tại
                         previousPoint = currentPoint;
-                    }
-
-                    // Xóa đường tròn ban đầu sau khi chia
+                    }                
                     circle.Erase();
                 }
-                 
-                tr.Commit();
+                else if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Polyline)))
+                {
+
+                }    
+
+                    tr.Commit();
             }
         }
         // Hàm tính toán tọa độ của điểm trên đường tròn tại góc angle
