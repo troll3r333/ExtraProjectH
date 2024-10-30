@@ -181,8 +181,64 @@ namespace ExtraProjectH
             }
         }
 
-        [CommandMethod("VePolyline")]
-        public void VePolyline()
+        public class PolylineJig : EntityJig
+        {
+            private Polyline _polyline;
+            private Point3d _currentPoint;
+            private int _vertexIndex;
+
+            public PolylineJig(Polyline polyline, Point3d startPoint) : base(polyline)
+            {
+                _polyline = polyline;
+                _currentPoint = startPoint;
+                _vertexIndex = 1; // Chỉ số điểm thứ hai trở đi (điểm đầu đã có)
+            }
+
+            // Cập nhật tọa độ điểm hiện tại
+            protected override bool Update()
+            {
+                // Cập nhật điểm cuối của Polyline trong quá trình vẽ
+                _polyline.SetPointAt(_vertexIndex - 1, new Point2d(_currentPoint.X, _currentPoint.Y));
+                return true;
+            }
+
+            // Lấy điểm tiếp theo từ người dùng
+            protected override SamplerStatus Sampler(JigPrompts prompts)
+            {
+                JigPromptPointOptions ppo = new JigPromptPointOptions("\nChọn điểm tiếp theo:");
+                ppo.BasePoint = _polyline.StartPoint;
+                ppo.UseBasePoint = false;
+
+                // Thu thập tọa độ điểm từ người dùng
+                PromptPointResult ppr = prompts.AcquirePoint(ppo);
+
+                if (ppr.Status == PromptStatus.OK)
+                {
+                    // Nếu tọa độ điểm mới khác với điểm hiện tại, cập nhật điểm
+                    if (_currentPoint != ppr.Value)
+                    {
+                        _currentPoint = ppr.Value;
+                        return SamplerStatus.OK;
+                    }
+                    else
+                    {
+                        return SamplerStatus.NoChange;
+                    }
+                }
+
+                return SamplerStatus.Cancel;
+            }
+
+            // Thêm đỉnh tiếp theo vào Polyline
+            public void AddNextVertex()
+            {
+                _polyline.AddVertexAt(_vertexIndex, new Point2d(_currentPoint.X, _currentPoint.Y), 0, 0, 0);
+                _vertexIndex++;
+            }
+        }
+
+        [CommandMethod("VePolylineJig")]
+        public void VePolylineJig()
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
@@ -195,48 +251,43 @@ namespace ExtraProjectH
 
                 // Khởi tạo một đối tượng Polyline mới
                 Polyline polyline = new Polyline();
-                int pointIndex = 0;
 
-                // Sử dụng vòng lặp để người dùng nhập các điểm của polyline
+                // Lấy điểm bắt đầu từ người dùng
+                PromptPointResult ppr = ed.GetPoint("\nChọn điểm đầu của Polyline:");
+                if (ppr.Status != PromptStatus.OK) return;
+
+                // Thêm điểm đầu vào Polyline
+                polyline.AddVertexAt(0, new Point2d(ppr.Value.X, ppr.Value.Y), 0, 0, 0);
+
+                // Khởi tạo PolylineJig và bắt đầu quá trình vẽ Polyline
+                PolylineJig jig = new PolylineJig(polyline, ppr.Value);
+
                 while (true)
                 {
-                    PromptPointOptions ppo = new PromptPointOptions("\nChọn điểm tiếp theo hoặc nhấn Enter để kết thúc:");
-                    if (pointIndex == 0)
-                    {
-                        ppo.Message = "\nChọn điểm đầu:";
-                    }
+                    // Sử dụng phương thức Drag để cho phép người dùng chọn điểm tiếp theo
+                    PromptResult res = ed.Drag(jig);
 
-                    // Nhập điểm từ người dùng
-                    PromptPointResult ppr = ed.GetPoint(ppo);
-                    if (ppr.Status == PromptStatus.Cancel || ppr.Status == PromptStatus.None)
+                    if (res.Status == PromptStatus.OK)
+                    {
+                        // Thêm điểm tiếp theo vào Polyline khi người dùng xác nhận
+                        jig.AddNextVertex();
+                    }
+                    else
                     {
                         // Kết thúc khi người dùng nhấn Enter
                         break;
                     }
-
-                    // Thêm điểm vào polyline
-                    polyline.AddVertexAt(pointIndex, new Point2d(ppr.Value.X, ppr.Value.Y), 0, 0, 0);
-                    pointIndex++;
                 }
 
-                // Kiểm tra nếu người dùng nhập ít nhất hai điểm
-                if (pointIndex > 1)
+                // Nếu Polyline có từ 2 điểm trở lên, thêm vào bản vẽ
+                if (polyline.NumberOfVertices > 1)
                 {
-                    // Thêm đối tượng Polyline vào bản vẽ
                     btr.AppendEntity(polyline);
                     tr.AddNewlyCreatedDBObject(polyline, true);
-
-                    // Commit transaction để lưu Polyline vào bản vẽ
                     tr.Commit();
-                }
-                else
-                {
-                    // Xóa đối tượng Polyline nếu người dùng chỉ nhập một điểm hoặc không nhập điểm nào
-                    polyline.Dispose();
                 }
             }
         }
-
 
         [CommandMethod("ChiaDeuDoanDuocChon")]
         public void ChiaDeuDoanDuocChon()
