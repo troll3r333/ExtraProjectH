@@ -302,11 +302,12 @@ namespace ExtraProjectH
                 BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 BlockTableRecord btr = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
-                // Yêu cầu người dùng chọn một đối tượng (đường thẳng hoặc đường tròn)
-                PromptEntityOptions peo = new PromptEntityOptions("\nChọn đường thẳng hoặc đường tròn để chia:");
-                peo.SetRejectMessage("\nĐối tượng phải là đường thẳng hoặc đường tròn.");
+                // Yêu cầu người dùng chọn một đối tượng (đường thẳng, đường tròn hoặc polyline)
+                PromptEntityOptions peo = new PromptEntityOptions("\nChọn đường thẳng, đường tròn hoặc polyline để chia:");
+                peo.SetRejectMessage("\nĐối tượng phải là đường thẳng, đường tròn hoặc polyline.");
                 peo.AddAllowedClass(typeof(Line), true);
-                peo.AddAllowedClass(typeof(Circle), true); // Cho phép chọn đường tròn
+                peo.AddAllowedClass(typeof(Circle), true);
+                peo.AddAllowedClass(typeof(Polyline), true); // Cho phép chọn polyline
                 PromptEntityResult per = ed.GetEntity(peo);
 
                 if (per.Status != PromptStatus.OK) return;
@@ -324,69 +325,106 @@ namespace ExtraProjectH
                 // Xử lý nếu đối tượng được chọn là đường thẳng
                 if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Line)))
                 {
-                    // Lấy đối tượng đường thẳng được chọn
                     Line line = (Line)tr.GetObject(per.ObjectId, OpenMode.ForWrite);
-
-                    // Tính vector đơn vị giữa điểm đầu và điểm cuối của đường thẳng
                     Vector3d vector = (line.EndPoint - line.StartPoint) / soPhan;
 
-                    // Tạo các đoạn đường thẳng mới từ các điểm chia
                     for (int i = 0; i < soPhan; i++)
                     {
                         Point3d startPoint = line.StartPoint + (vector * i);
                         Point3d endPoint = line.StartPoint + (vector * (i + 1));
-
-                        // Tạo đường thẳng mới từ startPoint đến endPoint
                         Line newLine = new Line(startPoint, endPoint);
-
-                        // Thêm đường thẳng mới vào bản vẽ
                         btr.AppendEntity(newLine);
                         tr.AddNewlyCreatedDBObject(newLine, true);
                     }
-
-                    // Xóa đường thẳng ban đầu sau khi chia
                     line.Erase();
                 }
                 // Xử lý nếu đối tượng được chọn là đường tròn
-                if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Circle)))
+                else if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Circle)))
                 {
-                    // Lấy đối tượng đường tròn được chọn
                     Circle circle = (Circle)tr.GetObject(per.ObjectId, OpenMode.ForWrite);
+                    double angleStep = 2 * Math.PI / soPhan;
+                    Point3d center = circle.Center;
+                    double radius = circle.Radius;
 
-                    double angleStep = 2 * Math.PI / soPhan; // Góc bước cho mỗi phần chia
-                    Point3d center = circle.Center;          // Tâm đường tròn
-                    double radius = circle.Radius;           // Bán kính đường tròn
-
-                    // Tạo các đoạn cung chia đều trên đường tròn
-                    Point3d previousPoint = PointOnCircle(center, radius, 0); // Điểm bắt đầu tại góc 0
                     for (int i = 1; i <= soPhan; i++)
                     {
                         double angle = i * angleStep;
-                        // Tính tọa độ của điểm chia mới trên đường tròn
-                        Point3d currentPoint = PointOnCircle(center, radius, angle);
-                        // Tạo cung (Arc) giữa hai điểm chia
                         Arc arc = new Arc(
                             center,
                             radius,
-                            (i - 1) * angleStep,   // Góc bắt đầu
-                            i * angleStep);        // Góc kết thúc
-
-                        // Thêm cung mới vào bản vẽ
+                            (i - 1) * angleStep,
+                            i * angleStep);
                         btr.AppendEntity(arc);
                         tr.AddNewlyCreatedDBObject(arc, true);
-                        // Cập nhật previousPoint để trở thành điểm cuối của cung hiện tại
-                        previousPoint = currentPoint;
-                    }                
+                    }
                     circle.Erase();
                 }
+                // Xử lý nếu đối tượng được chọn là polyline
                 else if (per.ObjectId.ObjectClass == RXObject.GetClass(typeof(Polyline)))
                 {
+                    Polyline polyline = (Polyline)tr.GetObject(per.ObjectId, OpenMode.ForWrite);
+                    int vertexCount = polyline.NumberOfVertices;
 
-                }    
+                    // Nếu polyline có ít hơn 2 đỉnh, không thể chia
+                    if (vertexCount < 2)
+                    {
+                        ed.WriteMessage("\nPolyline cần ít nhất 2 đỉnh để chia.");
+                        return;
+                    }
 
-                    tr.Commit();
+                    // Tính chiều dài tổng của polyline
+                    double totalLength = 0.0;
+                    for (int i = 0; i < vertexCount - 1; i++)
+                    {
+                        totalLength += polyline.GetPoint3dAt(i).DistanceTo(polyline.GetPoint3dAt(i + 1));
+                    }
+
+                    // Tính độ dài mỗi đoạn
+                    double segmentLength = totalLength / soPhan;
+                    double accumulatedLength = 0.0;
+
+                    // Tạo các đoạn đường thẳng từ các điểm chia
+                    Point3d previousPoint = polyline.GetPoint3dAt(0); // Điểm đầu
+                    double currentLength = 0.0;
+
+                    for (int i = 1; i <= soPhan; i++)
+                    {
+                        accumulatedLength = i * segmentLength;
+
+                        // Tìm điểm tương ứng với độ dài đã tích lũy
+                        for (int j = 0; j < vertexCount - 1; j++)
+                        {
+                            double segmentDistance = polyline.GetPoint3dAt(j).DistanceTo(polyline.GetPoint3dAt(j + 1));
+                            currentLength += segmentDistance;
+
+                            if (currentLength >= accumulatedLength)
+                            {
+                                // Tính toán điểm trên đoạn thẳng
+                                double fraction = (accumulatedLength - (currentLength - segmentDistance)) / segmentDistance;
+                                Point3d currentPoint = new Point3d(
+                                    polyline.GetPoint3dAt(j).X * (1 - fraction) + polyline.GetPoint3dAt(j + 1).X * fraction,
+                                    polyline.GetPoint3dAt(j).Y * (1 - fraction) + polyline.GetPoint3dAt(j + 1).Y * fraction,
+                                    polyline.GetPoint3dAt(j).Z * (1 - fraction) + polyline.GetPoint3dAt(j + 1).Z * fraction
+                                );
+
+                                Line newLine = new Line(previousPoint, currentPoint);
+                                btr.AppendEntity(newLine);
+                                tr.AddNewlyCreatedDBObject(newLine, true);
+
+                                previousPoint = currentPoint;
+                                break;
+                            }
+                        }
+                        currentLength = 0.0; // Đặt lại chiều dài cho đoạn tiếp theo
+                    }
+
+                    polyline.Erase(); // Xóa polyline ban đầu
+                }
+
+                tr.Commit();
             }
         }
+
         // Hàm tính toán tọa độ của điểm trên đường tròn tại góc angle
         private Point3d PointOnCircle(Point3d center, double radius, double angle)
         {
