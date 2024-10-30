@@ -191,14 +191,17 @@ namespace ExtraProjectH
             {
                 _polyline = polyline;
                 _currentPoint = startPoint;
-                _vertexIndex = 1; // Chỉ số điểm thứ hai trở đi (điểm đầu đã có)
+                _vertexIndex = 0; // Bắt đầu từ đỉnh đầu tiên
             }
 
             // Cập nhật tọa độ điểm hiện tại
             protected override bool Update()
             {
                 // Cập nhật điểm cuối của Polyline trong quá trình vẽ
-                _polyline.SetPointAt(_vertexIndex - 1, new Point2d(_currentPoint.X, _currentPoint.Y));
+                if (_vertexIndex > 0)
+                {
+                    _polyline.SetPointAt(_vertexIndex, new Point2d(_currentPoint.X, _currentPoint.Y));
+                }
                 return true;
             }
 
@@ -232,8 +235,8 @@ namespace ExtraProjectH
             // Thêm đỉnh tiếp theo vào Polyline
             public void AddNextVertex()
             {
-                _polyline.AddVertexAt(_vertexIndex, new Point2d(_currentPoint.X, _currentPoint.Y), 0, 0, 0);
                 _vertexIndex++;
+                _polyline.AddVertexAt(_vertexIndex, new Point2d(_currentPoint.X, _currentPoint.Y), 0, 0, 0);
             }
         }
 
@@ -249,17 +252,15 @@ namespace ExtraProjectH
                 BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 BlockTableRecord btr = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
-                // Khởi tạo một đối tượng Polyline mới
-                Polyline polyline = new Polyline();
-
                 // Lấy điểm bắt đầu từ người dùng
                 PromptPointResult ppr = ed.GetPoint("\nChọn điểm đầu của Polyline:");
                 if (ppr.Status != PromptStatus.OK) return;
 
-                // Thêm điểm đầu vào Polyline
+                // Khởi tạo một đối tượng Polyline mới
+                Polyline polyline = new Polyline();
                 polyline.AddVertexAt(0, new Point2d(ppr.Value.X, ppr.Value.Y), 0, 0, 0);
 
-                // Khởi tạo PolylineJig và bắt đầu quá trình vẽ Polyline
+                // Khởi tạo PolylineJig và bắt đầu quá trình vẽ Polyline từ điểm đầu
                 PolylineJig jig = new PolylineJig(polyline, ppr.Value);
 
                 while (true)
